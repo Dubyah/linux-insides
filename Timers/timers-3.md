@@ -1,4 +1,4 @@
-Timers in the Linux kernel. Part 3.
+Timers and time management in the Linux kernel. Part 3.
 ================================================================================
 
 The tick broadcast framework and dyntick
@@ -42,9 +42,9 @@ void __init tick_init(void)
 
 As you can understand from the paragraph's title, we are interesting only in the `tick_broadcast_init` function for now. This function defined in the [kernel/time/tick-broadcast.c](https://github.com/torvalds/linux/blob/master/kernel/time/tick-broadcast.c) source code file and executes initialization of the `tick broadcast` framework related data structures. Before we will look on the implementation of the `tick_broadcast_init` function and will try to understand what does this function do, we need to know about `tick broadcast` framework.
 
-Main point of a central processor is to execute programs. But somtimes a processor may be in a special state when it is not being used by any program. This special state is called - [idle](https://en.wikipedia.org/wiki/Idle_%28CPU%29). When the processor has no anything to execute, the Linux kernel launches `idle` task. We already saw a little about this in the last part of the [Linux kernel initialization process](https://0xax.gitbooks.io/linux-insides/content/Initialization/linux-initialization-10.html). When the Linux kernel will finish all initialization processes in the `start_kernel` function from the [init/main.c](https://github.com/torvalds/linux/blob/master/init/main.c) source code file, it will call the `rest_init` function from the same source code file. Main point of this function is to launch kernel `init` thread and the `kthreadd` thread, to call the `schedule` function to start task scheduling and to go to sleep by calling the `cpu_idle_loop` function that defined in the [kernel/sched/idle.c](https://github.com/torvalds/linux/blob/master/kernel/sched/idle.c) source code file.
+Main point of a central processor is to execute programs. But sometimes a processor may be in a special state when it is not being used by any program. This special state is called - [idle](https://en.wikipedia.org/wiki/Idle_%28CPU%29). When the processor has no anything to execute, the Linux kernel launches `idle` task. We already saw a little about this in the last part of the [Linux kernel initialization process](https://0xax.gitbooks.io/linux-insides/content/Initialization/linux-initialization-10.html). When the Linux kernel will finish all initialization processes in the `start_kernel` function from the [init/main.c](https://github.com/torvalds/linux/blob/master/init/main.c) source code file, it will call the `rest_init` function from the same source code file. Main point of this function is to launch kernel `init` thread and the `kthreadd` thread, to call the `schedule` function to start task scheduling and to go to sleep by calling the `cpu_idle_loop` function that defined in the [kernel/sched/idle.c](https://github.com/torvalds/linux/blob/master/kernel/sched/idle.c) source code file.
 
-The `cpu_idle_loop` function represents infinite loop which checks the need for rescheduling on each iteration. After the scheduller will fins something to execute, the `idle` process will finish its work and the control will be moved to a new runnable task with the call of the `schedule_preempt_disabled` function:
+The `cpu_idle_loop` function represents infinite loop which checks the need for rescheduling on each iteration. After the scheduler finds something to execute, the `idle` process will finish its work and the control will be moved to a new runnable task with the call of the `schedule_preempt_disabled` function:
 
 ```C
 static void cpu_idle_loop(void)
@@ -117,7 +117,7 @@ Ultimately, the memory space will be allocated for the given `cpumask` with the 
 *mask = kmalloc_node(cpumask_size(), flags, node);
 ```
 
-Now let's look on the `cpumasks` that will be initialized in the `tick_broadcast_init` function. As we can see, the `tick_broadcast_init` function will initialize six `cpumasks`, and moreover, initialization of the last three `cpumasks` will be dependet on the `CONFIG_TICK_ONESHOT` kernel configuration option.
+Now let's look on the `cpumasks` that will be initialized in the `tick_broadcast_init` function. As we can see, the `tick_broadcast_init` function will initialize six `cpumasks`, and moreover, initialization of the last three `cpumasks` will be depended on the `CONFIG_TICK_ONESHOT` kernel configuration option.
 
 The first three `cpumasks` are:
 
@@ -145,7 +145,7 @@ So, the last three `cpumasks` are:
 
 We have initialized six `cpumasks` in the `tick broadcast` framework, and now we can proceed to implementation of this framework.
 
-The `tick boradcast` framework
+The `tick broadcast` framework
 --------------------------------------------------------------------------------
 
 Hardware may provide some clock source devices. When a processor sleeps and its local timer stopped, there must be additional clock source device that will handle awakening of a processor. The Linux kernel uses these `special` clock source devices which can raise an interrupt at a specified time. We already know that such timers called `clock events` devices in the Linux kernel. Besides `clock events` devices. Actually, each processor in the system has its own local timer which is programmed to issue interrupt at the time of the next deferred task. Also these timers can be programmed to do a periodical job, like updating `jiffies` and etc. These timers represented by the `tick_device` structure in the Linux kernel. This structure defined in the [kernel/time/tick-sched.h](https://github.com/torvalds/linux/blob/master/kernel/time/tick-sched.h) header file and looks:
@@ -174,7 +174,7 @@ Each `clock events` device in the system registers itself by the call of the `cl
 tick_install_broadcast_device(newdev);
 ```
 
-function that cheks that the given `clock event` device can be broadcast device and install it, if the given device can be broadcast device. Let's look on the implementation of the `tick_install_broadcast_device` function:
+function that checks that the given `clock event` device can be broadcast device and install it, if the given device can be broadcast device. Let's look on the implementation of the `tick_install_broadcast_device` function:
 
 ```C
 void tick_install_broadcast_device(struct clock_event_device *dev)
@@ -208,7 +208,7 @@ First of all we get the current `clock event` device from the `tick_broadcast_de
 static struct tick_device tick_broadcast_device;
 ```
 
-and represents external clock device that keeps track of events for a processor. The first step after we got the current clock device is the call of the `tick_check_broadcast_device` function which checks that a given clock events device can be utilized as broadcast device. The main point of the `tick_check_broadcast_device` function is to check value of the `features` field of the given `clock events` device. As we can understand from the name of this field, the `features` field contains a clock event device features. Avaliable values defined in the [include/linux/clockchips.h](https://github.com/torvalds/linux/blob/master/include/linux/clockchips.h) header file and can be one of the `CLOCK_EVT_FEAT_PERIODIC` - which represents a clock events device which supports periodic events and etc. So, the `tick_check_broadcast_device` function check `features` flags for `CLOCK_EVT_FEAT_ONESHOT`, `CLOCK_EVT_FEAT_DUMMY` and other flags and returns `false` if the given clock events device has one of these features. In other way the `tick_check_broadcast_device` function compares `ratings` of the given clock event device and current clock event device and returns the best.
+and represents external clock device that keeps track of events for a processor. The first step after we got the current clock device is the call of the `tick_check_broadcast_device` function which checks that a given clock events device can be utilized as broadcast device. The main point of the `tick_check_broadcast_device` function is to check value of the `features` field of the given `clock events` device. As we can understand from the name of this field, the `features` field contains a clock event device features. Available values defined in the [include/linux/clockchips.h](https://github.com/torvalds/linux/blob/master/include/linux/clockchips.h) header file and can be one of the `CLOCK_EVT_FEAT_PERIODIC` - which represents a clock events device which supports periodic events and etc. So, the `tick_check_broadcast_device` function check `features` flags for `CLOCK_EVT_FEAT_ONESHOT`, `CLOCK_EVT_FEAT_DUMMY` and other flags and returns `false` if the given clock events device has one of these features. In other way the `tick_check_broadcast_device` function compares `ratings` of the given clock event device and current clock event device and returns the best.
 
 After the `tick_check_broadcast_device` function, we can see the call of the `try_module_get` function that checks module owner of the clock events. We need to do it to be sure that the given `clock events` device was correctly initialized. The next step is the call of the `clockevents_exchange_device` function that defined in the [kernel/time/clockevents.c](https://github.com/torvalds/linux/blob/master/kernel/time/clockevents.c) source code file and will release old clock events device and replace the previous functional handler with a dummy handler.
 
@@ -321,7 +321,7 @@ If you remember, we have started this part with the call of the `tick_init` func
 Initialization of dyntick related data structures
 --------------------------------------------------------------------------------
 
-We already saw some information about `dyntick` concept in this part and we know that this concept allows kernel to disable system timer interrupts in the `idle` state. The `tick_nohz_init` function makes initialization of the different data structures which are related to this concept. This function defined in the [kernel/time/tick-sched.c](https://github.com/torvalds/linux/blob/master/kernel/time/tich-sched.c) source code file and starts from the check of the value of the `tick_nohz_full_running` variable which represents state of the tick-less mode for the `idle` state and the state when system timer interrups are disabled durung a processor has only one runnable task:
+We already saw some information about `dyntick` concept in this part and we know that this concept allows kernel to disable system timer interrupts in the `idle` state. The `tick_nohz_init` function makes initialization of the different data structures which are related to this concept. This function defined in the [kernel/time/tick-sched.c](https://github.com/torvalds/linux/blob/master/kernel/time/tich-sched.c) source code file and starts from the check of the value of the `tick_nohz_full_running` variable which represents state of the tick-less mode for the `idle` state and the state when system timer interrups are disabled during a processor has only one runnable task:
 
 ```C
 if (!tick_nohz_full_running) {
@@ -330,7 +330,7 @@ if (!tick_nohz_full_running) {
 }
 ```
 
-If this mode is not running we cann the `tick_nohz_init_all` function that defined in the same source code file and check its result. The `tick_nohz_init_all` function tries to allocate the `tick_nohz_full_mask` with the call of the `alloc_cpumask_var` that will allocate space for a `tick_nohz_full_mask`. The `tck_nohz_full_mask` will store numbers of processors that have enabled full `NO_HZ`. After successful allocation of the `tick_nohz_full_mask` we set all bits in the `tick_nogz_full_mask`, set the `tick_nohz_full_running` and return result to the `tick_nohz_init` function:
+If this mode is not running we call the `tick_nohz_init_all` function that defined in the same source code file and check its result. The `tick_nohz_init_all` function tries to allocate the `tick_nohz_full_mask` with the call of the `alloc_cpumask_var` that will allocate space for a `tick_nohz_full_mask`. The `tck_nohz_full_mask` will store numbers of processors that have enabled full `NO_HZ`. After successful allocation of the `tick_nohz_full_mask` we set all bits in the `tick_nogz_full_mask`, set the `tick_nohz_full_running` and return result to the `tick_nohz_init` function:
 
 ```C
 static int tick_nohz_init_all(void)
@@ -360,7 +360,7 @@ if (!alloc_cpumask_var(&housekeeping_mask, GFP_KERNEL)) {
 }
 ```
 
-This `cpumask` will store number of processor for `housekeeping` or in other words we need at least in one processor that will not me in `NO_HZ` mode, because it will do timekeeping and etc. After this we check the result of the architecture-specific `arch_irq_work_has_interrupt` function. This function checks ability to send inter-processor interrupt for the certain architecture. We need to check this, because system timer of a processor will be disabled during `NO_HZ` mode, so there must be at least one online processor which can send inter-processor interrupt to awake offline processor. This function defined in the [arch/x86/include/asm/irq_work.h](https://github.com/torvalds/linux/blob/master/arch/x86/include/asm/irq_work.h) header file for the [x86_64](https://en.wikipedia.org/wiki/X86-64) and just checks that a processor has [APIC](https://en.wikipedia.org/wiki/Advanced_Programmable_Interrupt_Controller) from the [CPUID](https://en.wikipedia.org/wiki/CPUID):
+This `cpumask` will store number of processor for `housekeeping` or in other words we need at least in one processor that will not be in `NO_HZ` mode, because it will do timekeeping and etc. After this we check the result of the architecture-specific `arch_irq_work_has_interrupt` function. This function checks ability to send inter-processor interrupt for the certain architecture. We need to check this, because system timer of a processor will be disabled during `NO_HZ` mode, so there must be at least one online processor which can send inter-processor interrupt to awake offline processor. This function defined in the [arch/x86/include/asm/irq_work.h](https://github.com/torvalds/linux/blob/master/arch/x86/include/asm/irq_work.h) header file for the [x86_64](https://en.wikipedia.org/wiki/X86-64) and just checks that a processor has [APIC](https://en.wikipedia.org/wiki/Advanced_Programmable_Interrupt_Controller) from the [CPUID](https://en.wikipedia.org/wiki/CPUID):
 
 ```C
 static inline bool arch_irq_work_has_interrupt(void)
@@ -369,7 +369,7 @@ static inline bool arch_irq_work_has_interrupt(void)
 }
 ```
 
-If a processor has not `APIC`, the Linux kernel prints warning message, clears the `tick_nohz_full_mask` cpumask, copies numbers of all posible processors in the system to the `housekeeping_mask` and resets the value of the `tick_nogz_full_running` variable:
+If a processor has not `APIC`, the Linux kernel prints warning message, clears the `tick_nohz_full_mask` cpumask, copies numbers of all possible processors in the system to the `housekeeping_mask` and resets the value of the `tick_nohz_full_running` variable:
 
 ```C
 if (!arch_irq_work_has_interrupt()) {
@@ -382,7 +382,7 @@ if (!arch_irq_work_has_interrupt()) {
 }
 ```
 
-After this step, we get the number of the current processor by the call of the `smp_processor_id` and check this processor in the `tick_nogh_full_mask`. If the `tick_nohz_full_mask` contains a given processor we clear appropriate bit in the `tick_nohz_full_mask`:
+After this step, we get the number of the current processor by the call of the `smp_processor_id` and check this processor in the `tick_nohz_full_mask`. If the `tick_nohz_full_mask` contains a given processor we clear appropriate bit in the `tick_nohz_full_mask`:
 
 ```C
 cpu = smp_processor_id();
@@ -393,7 +393,7 @@ if (cpumask_test_cpu(cpu, tick_nohz_full_mask)) {
 }
 ```
 
-Because this processor will be used for timekeeping. After this step we put all numbers of processors that are in the `cpu_posssible_mask` and not in the `tick_nogz_full_mask`:
+Because this processor will be used for timekeeping. After this step we put all numbers of processors that are in the `cpu_possible_mask` and not in the `tick_nohz_full_mask`:
 
 ```C
 cpumask_andnot(housekeeping_mask,
@@ -414,11 +414,11 @@ That's all. This is the end of the `tick_nohz_init` function. After this `NO_HZ`
 Conclusion
 --------------------------------------------------------------------------------
 
-This is the end of the third part of the chapter that describes timers and timer management related stuff in the Linux kernel. In the previous part got acquainted with the `clocksource` concept in the Linux kernel which represents framework for managing different clock source in a interrupt and hardware characteristics independent way. We continued to look on the Linux kernel initialization process in a time management context in this part and got acquainted with two new concepts for us: the `tick broadcast` framework and `tick-less` mode. The first concept helps the Linux kernel to deal with processors which which are in deep sleep and the second concept represents the mode in which kernel may work to improve power management of `idle` processors.
+This is the end of the third part of the chapter that describes timers and timer management related stuff in the Linux kernel. In the previous part got acquainted with the `clocksource` concept in the Linux kernel which represents framework for managing different clock source in a interrupt and hardware characteristics independent way. We continued to look on the Linux kernel initialization process in a time management context in this part and got acquainted with two new concepts for us: the `tick broadcast` framework and `tick-less` mode. The first concept helps the Linux kernel to deal with processors which are in deep sleep and the second concept represents the mode in which kernel may work to improve power management of `idle` processors.
 
 In the next part we will continue to dive into timer management related things in the Linux kernel and will see new concept for us - `timers`.
 
-If you have questions or suggestions, feel free to ping me in twitter [0xAX](https://twitter.com/0xAX), drop me [email](anotherworldofworld@gmail.com) or just create [issue](https://github.com/0xAX/linux-internals/issues/new).
+If you have questions or suggestions, feel free to ping me in twitter [0xAX](https://twitter.com/0xAX), drop me [email](anotherworldofworld@gmail.com) or just create [issue](https://github.com/0xAX/linux-insides/issues/new).
 
 **Please note that English is not my first language and I am really sorry for any inconvenience. If you found any mistakes please send me PR to [linux-insides](https://github.com/0xAX/linux-insides).**
 
